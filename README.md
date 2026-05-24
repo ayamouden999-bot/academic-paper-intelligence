@@ -1,6 +1,16 @@
 ## Run in Google Colab
 [![Open In Colab]
 https://colab.research.google.com/drive/1HpKdw7IiekZv9GolXtd-YfWIkQ2dzNTD?usp=sharing
+
+
+## Demo Video
+
+[![Demo Video] 
+Watch the full system demo:  https://youtu.be/_ucK_IAtYKg 
+
+
+
+
 # 🎓 Academic Paper Intelligence System
 > A multi-agent AI system that reads research papers and produces peer-review style critiques.
 
