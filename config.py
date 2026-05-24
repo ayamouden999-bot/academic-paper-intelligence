@@ -61,8 +61,7 @@ NOVELTY_LABELS = {
 }
 
 # ── Gemini ────────────────────────────────────────────────────────────────────
-GEMINI_MODEL = "groq/llama-3.3-70b-versatile"
-
+GEMINI_MODEL = "groq/llama-3.1-8b-instant"
 # ── Semantic Scholar ──────────────────────────────────────────────────────────
 SEMANTIC_SCHOLAR_BASE_URL = "https://api.semanticscholar.org/graph/v1"
 SEMANTIC_SCHOLAR_MAX_RESULTS = 5

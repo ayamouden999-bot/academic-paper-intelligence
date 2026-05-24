@@ -61,6 +61,7 @@ def extract_corrected_field(result_text: str) -> str:
         "Pure Mathematics", "Applied Mathematics", "Electrical Engineering",
         "Mechanical Engineering", "Biology", "Economics", "Statistics",
         "Quantitative Finance", "Astrophysics", "Chemistry", "Medicine",
+        "Data Science", "Cloud Computing", "Software Engineering",
     ]
     for field in known_fields:
         if field.lower() in text.lower():
@@ -79,6 +80,7 @@ def extract_corrected_field(result_text: str) -> str:
             return field
 
     return "See Classifier Agent analysis below"
+
 
 # ── HITL checkpoint ───────────────────────────────────────────────────────────
 def human_checkpoint(classification: dict, paper_title: str) -> bool:
@@ -125,72 +127,66 @@ def make_agents():
         role="Research Paper Classifier",
         goal=(
             "Determine the correct research field of the paper. "
-            "You receive a preliminary TextCNN prediction but must use your own "
-            "reasoning on the abstract to confirm or correct it. "
-            "Always output the correct field regardless of what the TextCNN said."
+            "Start your response with 'Corrected Field: [field name]'. "
+            "Be concise — maximum 150 words total."
         ),
         backstory=(
-            "You are a specialist in academic paper classification with deep knowledge "
-            "across all scientific disciplines. You receive a preliminary classification "
-            "from a TextCNN model but you are the authoritative classifier — you use "
-            "the paper abstract to determine the true field and novelty, correcting "
-            "the model when necessary. You never output 'Uncertain' — you always "
-            "determine the correct field from the content."
+            "Expert classifier. You override incorrect TextCNN predictions "
+            "using abstract reasoning. Always output corrected field first."
         ),
         verbose=True,
         allow_delegation=False,
+        max_iter=2,
         llm=llm,
     )
 
     extraction_agent = Agent(
         role="Research Paper Extraction Specialist",
         goal=(
-            "Extract all key structured information from the research paper: "
-            "research question, methodology, datasets used, key results, and limitations. "
-            "Use the CORRECTED field from the Classifier Agent, not the preliminary TextCNN label."
+            "Extract key information from the paper in maximum 200 words. "
+            "Use the CORRECTED field from the Classifier Agent."
         ),
         backstory=(
-            "You are an expert research analyst who has reviewed thousands of papers. "
-            "You know exactly what to look for in each discipline — a CS paper needs "
-            "dataset details and benchmark comparisons, a math paper needs theorem "
-            "statements and proof techniques. You never hallucinate facts."
+            "Expert analyst. Extract concisely: research question, "
+            "methodology, 3 key results, limitations, reproducibility."
         ),
         verbose=True,
         allow_delegation=False,
+        max_iter=2,
         llm=llm,
     )
 
     citation_agent = Agent(
         role="Citation and Literature Analyst",
         goal=(
-            "Analyze the paper's references and identify important missing citations. "
-            "Use the CORRECTED field from the Classifier Agent for context."
+            "Analyze citations in maximum 150 words. "
+            "Give citation quality score 1-10 with brief justification."
         ),
         backstory=(
-            "You are a research librarian and literature expert. You know the seminal "
-            "papers in every field and immediately spot missing crucial citations. "
-            "You use real search results and never make up paper titles or authors."
+            "Expert librarian. Identify missing citations and assess "
+            "recency and coverage briefly."
         ),
         verbose=True,
         allow_delegation=False,
+        max_iter=2,
         llm=llm,
     )
 
     critique_agent = Agent(
         role="Peer Review Critique Writer",
         goal=(
-            "Synthesize all analysis into a structured, fair peer-review critique. "
-            "Use the CORRECTED field from the Classifier Agent in your review. "
-            "Produce a final verdict: Accept / Major Revision / Reject."
+            "Write a structured peer review with exactly these sections: "
+            "## Summary, ## Strengths, ## Weaknesses, ## Citation Assessment, "
+            "## Reproducibility Score, ## Novelty Assessment, ## Final Verdict. "
+            "Keep each section to 2-3 sentences maximum."
         ),
         backstory=(
-            "You are a senior academic reviewer who has published in top venues and "
-            "reviewed for Nature, NeurIPS, ICML, and JAMA. Your reviews are honest, "
-            "specific, and constructive. You always back every claim with evidence. "
-            "Your verdict is always one of: Accept / Major Revision / Reject."
+            "Senior academic reviewer. Write concise, evidence-backed reviews. "
+            "Final verdict must be exactly one of: Accept / Major Revision / Reject."
         ),
         verbose=True,
         allow_delegation=False,
+        max_iter=2,
         llm=llm,
     )
 
@@ -201,127 +197,61 @@ def make_agents():
 def make_tasks(agents, paper, classification, related_papers):
     classifier_agent, extraction_agent, citation_agent, critique_agent = agents
 
+    # Truncate inputs to reduce token usage
+    abstract  = paper['abstract'][:500]
+    excerpt   = paper['full_text'][:800]
+    refs      = paper['references'][:5]
+
     task1 = Task(
-        description=f"""You are the authoritative classifier for this research paper.
-
-        Paper title: {paper['title']}
-
-        Abstract:
-        {paper['abstract']}
-
-        A TextCNN model gave this PRELIMINARY prediction (may be wrong):
-        - Preliminary Field: {classification['field']} (confidence: {classification['field_confidence']*100:.1f}%)
-        - Novelty Level: {classification['novelty']} (confidence: {classification['novelty_confidence']*100:.1f}%)
-
-        The TextCNN confidence is low ({classification['field_confidence']*100:.1f}%), meaning the model
-        is uncertain. YOU must determine the correct field from the abstract.
-
-        Your job:
-        1. Read the abstract carefully
-        2. Determine the TRUE research field (e.g. Mathematical Physics, Computer Science,
-           Internet of Things, Pure Mathematics, Theoretical Physics, Machine Learning,
-           Biology, Economics, Electrical Engineering, etc.)
-        3. Start your response with: "Corrected Field: [field name]"
-        4. Confirm or correct the novelty level
-        5. Provide a 2-sentence rationale
-        6. List 3 key technical terms from the paper
-        """,
+        description=f"""Paper: {paper['title']}
+Abstract: {abstract}
+TextCNN preliminary: {classification['field']} ({classification['field_confidence']*100:.1f}% — may be wrong)
+Start with 'Corrected Field: [name]'. Assess novelty. List 3 key terms. Max 150 words.""",
         agent=classifier_agent,
-        expected_output="Corrected Field clearly stated first, then novelty level, rationale, and 3 key technical terms.",
+        expected_output="Corrected Field stated first, novelty, 3 key terms. Under 150 words.",
     )
 
     task2 = Task(
-        description=f"""Extract structured information from this research paper.
-
-        Paper title: {paper['title']}
-
-        IMPORTANT: Use the corrected field from Task 1 (the Classifier Agent),
-        NOT the preliminary TextCNN label '{classification['field']}'.
-
-        Full abstract:
-        {paper['abstract']}
-
-        Paper excerpt (first 3000 chars):
-        {paper['full_text'][:3000]}
-
-        Extract and structure the following:
-        1. **Research Question** — What problem does this paper solve? (2-3 sentences)
-        2. **Methodology** — What approach/technique is used? Be specific.
-        3. **Key Results** — 3 concrete findings with numbers if available
-        4. **Datasets/Benchmarks** — What data was used? (if applicable)
-        5. **Limitations** — 2-3 honest limitations of the work
-        6. **Reproducibility** — Is there mention of code, data availability?
-        """,
+        description=f"""Paper: {paper['title']}
+Use corrected field from Task 1.
+Abstract: {abstract}
+Excerpt: {excerpt}
+Extract in under 200 words: 1.Research Question 2.Methodology 3.Key Results(3) 4.Datasets 5.Limitations(2) 6.Reproducibility""",
         agent=extraction_agent,
-        expected_output="Structured extraction with research question, methodology, results, datasets, limitations, reproducibility.",
+        expected_output="6-part structured extraction under 200 words.",
         context=[task1],
     )
 
     related_str = "\n".join([
-        f"- {p['title']} ({p['year']}) — {p['citations']} citations"
-        for p in related_papers[:5]
-    ]) if related_papers else "No related papers found via Semantic Scholar."
+        f"- {p['title']} ({p.get('year','?')}) — {p.get('citations',0)} citations"
+        for p in related_papers[:3]
+    ]) if related_papers else "No related papers found."
 
     task3 = Task(
-        description=f"""Analyze the citation landscape for this research paper.
-
-        Paper title: {paper['title']}
-
-        IMPORTANT: Use the corrected field from Task 1, not '{classification['field']}'.
-
-        References found in paper ({len(paper['references'])} total):
-        {chr(10).join(paper['references'][:10])}
-
-        Related papers found via Semantic Scholar API search:
-        {related_str}
-
-        Your analysis:
-        1. **Citation Coverage** — Does the paper cite the key works in this field?
-        2. **Missing Citations** — Name 2-3 important papers that should be cited
-        3. **Recency** — Are the references up to date or mostly outdated?
-        4. **Overall citation quality** — Score 1-10 with justification
-        """,
+        description=f"""Paper: {paper['title']}
+Use corrected field from Task 1.
+References: {len(paper['references'])} found. Sample: {chr(10).join([str(r)[:80] for r in refs])}
+Related via Semantic Scholar: {related_str}
+Analyze in under 150 words: citation coverage, 2 missing citations, recency, score 1-10.""",
         agent=citation_agent,
-        expected_output="Citation analysis with coverage, missing refs, recency, and quality score.",
+        expected_output="Citation analysis with score. Under 150 words.",
         context=[task1, task2],
     )
 
     task4 = Task(
-        description=f"""Write a complete peer-review critique for this research paper.
-
-        You have received:
-        - Classification analysis from Task 1 (use the CORRECTED field, not '{classification['field']}')
-        - Structured extraction from Task 2
-        - Citation analysis from Task 3
-
-        Paper title: {paper['title']}
-
-        Write a structured peer review with these exact sections:
-
-        ## Summary
-        (2-3 sentences summarizing the paper's contribution and its TRUE research field)
-
-        ## Strengths
-        (3 specific, evidence-backed strengths)
-
-        ## Weaknesses
-        (3 specific, evidence-backed weaknesses)
-
-        ## Citation Assessment
-        (Based on Task 3 findings)
-
-        ## Reproducibility Score
-        (1-10 with justification)
-
-        ## Novelty Assessment
-        (Agree or disagree with '{classification['novelty']}' classification — explain why)
-
-        ## Final Verdict
-        **[Accept / Major Revision / Reject]**
-        (2-3 sentences justifying the verdict)
-        """,
+        description=f"""Write peer review for: {paper['title']}
+Use corrected field from Task 1 (NOT '{classification['field']}').
+Keep each section 2-3 sentences max:
+## Summary
+## Strengths
+## Weaknesses
+## Citation Assessment
+## Reproducibility Score
+## Novelty Assessment (agree/disagree with '{classification['novelty']}')
+## Final Verdict
+**[Accept / Major Revision / Reject]**""",
         agent=critique_agent,
-        expected_output="Complete peer review using the corrected field, with all sections and a final verdict.",
+        expected_output="Complete peer review with all 7 sections, each 2-3 sentences.",
         context=[task1, task2, task3],
     )
 
@@ -346,8 +276,8 @@ def run_full_pipeline(pdf_path: str):
         paper = extract_text_from_pdf(pdf_path)
         validate_extraction(paper)
         paper["full_text"]      = sanitize_text(paper["full_text"])
-        paper["abstract"]       = sanitize_text(paper["abstract"], max_chars=2000)
-        paper["classify_input"] = sanitize_text(paper["classify_input"], max_chars=1500)
+        paper["abstract"]       = sanitize_text(paper["abstract"], max_chars=500)
+        paper["classify_input"] = sanitize_text(paper["classify_input"], max_chars=500)
     except PipelineError as e:
         print(f"\n❌ Guardrail blocked: {e}")
         log_action("guardrail", "extraction_rejected", {"reason": str(e)})
@@ -387,7 +317,7 @@ def run_full_pipeline(pdf_path: str):
 
     # Step 4: Citation search
     print("\n🔍 Step 4/5 — Searching related papers via Semantic Scholar...")
-    related_papers = search_related_papers(paper["title"], limit=5)
+    related_papers = search_related_papers(paper["title"], limit=3)
     log_action("citation_agent", "semantic_scholar_search", {
         "query":         paper["title"],
         "results_found": len(related_papers),
@@ -409,21 +339,19 @@ def run_full_pipeline(pdf_path: str):
         verbose=True,
     )
 
-    result = crew.kickoff()
+    result     = crew.kickoff()
     result_str = str(result)
-
-    # Extract corrected field from Agent 1 output
     corrected_field = extract_corrected_field(result_str)
 
     # Save JSON output
     output = {
-        "timestamp":           datetime.datetime.now().isoformat(),
-        "paper_title":         paper["title"],
-        "pdf_path":            pdf_path,
-        "textcnn_preliminary": classification,
-        "corrected_field":     corrected_field,
-        "related_papers":      related_papers,
-        "peer_review":         result_str,
+        "timestamp":            datetime.datetime.now().isoformat(),
+        "paper_title":          paper["title"],
+        "pdf_path":             pdf_path,
+        "textcnn_preliminary":  classification,
+        "corrected_field":      corrected_field,
+        "related_papers":       related_papers,
+        "peer_review":          result_str,
     }
 
     fname    = f"review_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -437,7 +365,7 @@ def run_full_pipeline(pdf_path: str):
         f.write(f"# Peer Review: {paper['title']}\n\n")
         f.write(f"**Generated:** {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
         f.write(f"**Field:** {corrected_field}\n\n")
-        f.write(f"**Novelty:** {classification['novelty']} ({classification['novelty_confidence']*100:.1f}% — assessed by Classifier Agent in review)\n\n")
+        f.write(f"**Novelty:** {classification['novelty']} ({classification['novelty_confidence']*100:.1f}%)\n\n")
         f.write("---\n\n")
         f.write(result_str)
 

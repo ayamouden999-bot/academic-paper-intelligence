@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Academic Paper Intelligence</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --surface2: #faf9f6;
+  --border: rgba(0,0,0,0.08);
+  --border-strong: rgba(0,0,0,0.14);
+  --text: #18181b;
+  --text-muted: #6b7280;
+  --text-hint: #9ca3af;
+  --purple: #6d5ce7;
+  --purple-light: #ede9fe;
+  --purple-dark: #4c3d9e;
+  --teal: #0f7460;
+  --teal-light: #d1fae5;
+  --teal-dark: #065f46;
+  --amber: #b45309;
+  --amber-light: #fef3c7;
+  --amber-dark: #78350f;
+  --red: #b91c1c;
+  --red-light: #fee2e2;
+  --red-dark: #7f1d1d;
+  --green: #15803d;
+  --green-light: #dcfce7;
+  --green-dark: #14532d;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 3rem 1rem 4rem;
+}
+
+.container { max-width: 720px; margin: 0 auto; }
+
+/* ── sections ── */
+#upload-section { display: block; }
+#pipeline-section { display: none; }
+#result-section { display: none; }
+
+.header { text-align: center; margin-bottom: 3rem; }
+
+.logo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--purple-light);
+  color: var(--purple-dark);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 20px;
+  margin-bottom: 18px;
+}
+
+.logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--purple); }
+
+.header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); margin-bottom: 10px; line-height: 1.2; }
+.header h1 span { color: var(--purple); }
+.header p { font-size: 15px; color: var(--text-muted); line-height: 1.6; max-width: 460px; margin: 0 auto; }
+
+.card { background: var(--surface); border: 0.5px solid var(--border-strong); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; }
+
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; }
+.card-icon { width: 30px; height: 30px; border-radius: var(--radius-xs); background: var(--purple-light); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.card-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+
+.upload-zone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 3rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.18s;
+  background: var(--surface2);
+}
+.upload-zone:hover { border-color: var(--purple); background: var(--purple-light); }
+.upload-zone.drag-over { border-color: var(--purple); background: var(--purple-light); }
+.upload-emoji { font-size: 36px; display: block; margin-bottom: 12px; }
+.upload-zone h3 { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.upload-zone p { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; line-height: 1.5; }
+input[type="file"] { display: none; }
+
+.btn { display: inline-block; font-size: 13px; font-weight: 500; padding: 8px 18px; border-radius: var(--radius-sm); border: 0.5px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.12s; text-decoration: none; line-height: 1; }
+.btn:hover { background: var(--bg); }
+.btn-primary { background: var(--purple); color: white; border-color: var(--purple); }
+.btn-primary:hover { background: var(--purple-dark); border-color: var(--purple-dark); }
+.btn-success { background: var(--teal-light); color: var(--teal-dark); border-color: var(--teal); font-weight: 600; }
+.btn-success:hover { background: #a7f3d0; }
+.btn-danger { background: var(--red-light); color: var(--red-dark); border-color: var(--red); }
+.btn-danger:hover { background: #fecaca; }
+
+.step-list { display: grid; gap: 8px; }
+.step { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius-sm); border: 0.5px solid transparent; background: var(--surface2); transition: all 0.2s; }
+.step.running { background: var(--amber-light); border-color: rgba(180,83,9,0.2); }
+.step.done { background: var(--green-light); border-color: rgba(21,128,61,0.2); }
+.step.waiting { background: var(--purple-light); border-color: rgba(109,92,231,0.25); }
+.step.rejected { background: var(--red-light); border-color: rgba(185,28,28,0.2); }
+
+.step-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 12px; font-weight: 600; background: var(--border-strong); color: var(--text-muted); transition: all 0.2s; }
+.step.done .step-num { background: var(--green); color: white; }
+.step.running .step-num { background: var(--amber); color: white; }
+.step.waiting .step-num { background: var(--purple); color: white; }
+.step.rejected .step-num { background: var(--red); color: white; }
+
+.step-label { font-size: 13px; color: var(--text-muted); flex: 1; }
+.step.done .step-label { color: var(--green-dark); font-weight: 500; }
+.step.running .step-label { color: var(--amber-dark); font-weight: 500; }
+.step.waiting .step-label { color: var(--purple-dark); font-weight: 500; }
+
+.step-actions { display: flex; gap: 6px; }
+
+.badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; letter-spacing: 0.02em; }
+.badge-purple { background: var(--purple-light); color: var(--purple-dark); }
+.badge-teal { background: var(--teal-light); color: var(--teal-dark); }
+.badge-green { background: var(--green-light); color: var(--green-dark); }
+.badge-red { background: var(--red-light); color: var(--red-dark); }
+.badge-amber { background: var(--amber-light); color: var(--amber-dark); }
+
+.paper-meta { background: var(--surface2); border: 0.5px solid var(--border-strong); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 14px; }
+.paper-meta h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 5px; line-height: 1.4; }
+.paper-stats { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); }
+
+.classification-box { margin-top: 10px; background: var(--purple-light); border: 0.5px solid rgba(109,92,231,0.2); border-radius: var(--radius-sm); padding: 12px 14px; }
+.classification-box .cl-row { display: flex; justify-content: space-between; align-items: center; font-size: 12px; margin-bottom: 3px; }
+.classification-box .cl-label { color: var(--purple-dark); font-weight: 500; }
+.classification-box .cl-value { color: var(--text-muted); }
+.classification-box .cl-note { font-size: 11px; color: rgba(76,61,158,0.7); font-style: italic; margin-top: 6px; }
+
+.verdict-banner { border-radius: var(--radius-sm); padding: 14px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.verdict-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; flex-shrink: 0; }
+.verdict-accept { background: var(--green-light); border: 0.5px solid rgba(21,128,61,0.2); }
+.verdict-revision { background: var(--amber-light); border: 0.5px solid rgba(180,83,9,0.2); }
+.verdict-reject { background: var(--red-light); border: 0.5px solid rgba(185,28,28,0.2); }
+.verdict-accept .verdict-icon { background: var(--green); color: white; }
+.verdict-revision .verdict-icon { background: var(--amber); color: white; }
+.verdict-reject .verdict-icon { background: var(--red); color: white; }
+.verdict-text { flex: 1; }
+.verdict-text .vt-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 2px; }
+.verdict-text .vt-value { font-size: 16px; font-weight: 700; }
+.verdict-accept .vt-value { color: var(--green-dark); }
+.verdict-revision .vt-value { color: var(--amber-dark); }
+.verdict-reject .vt-value { color: var(--red-dark); }
+
+.metric-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+.metric { background: var(--surface2); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+.metric-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 500; margin-bottom: 6px; }
+.metric-value { font-size: 20px; font-weight: 700; color: var(--text); }
+.metric-value.sm { font-size: 13px; font-weight: 600; }
+
+.section-block { border-radius: var(--radius-sm); padding: 14px; margin-bottom: 8px; border: 0.5px solid var(--border); }
+.section-block h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+.section-block h4::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+.section-block p { font-size: 13px; color: var(--text-muted); line-height: 1.7; white-space: pre-wrap; }
+
+.section-block.summary { background: var(--surface2); }
+.section-block.summary h4 { color: var(--text-muted); }
+.section-block.summary h4::before { background: var(--text-hint); }
+.section-block.strengths { background: var(--green-light); border-color: rgba(21,128,61,0.15); }
+.section-block.strengths h4 { color: var(--green-dark); }
+.section-block.strengths h4::before { background: var(--green); }
+.section-block.weaknesses { background: var(--red-light); border-color: rgba(185,28,28,0.15); }
+.section-block.weaknesses h4 { color: var(--red-dark); }
+.section-block.weaknesses h4::before { background: var(--red); }
+.section-block.citations { background: var(--purple-light); border-color: rgba(109,92,231,0.15); }
+.section-block.citations h4 { color: var(--purple-dark); }
+.section-block.citations h4::before { background: var(--purple); }
+.section-block.repro { background: var(--teal-light); border-color: rgba(15,116,96,0.15); }
+.section-block.repro h4 { color: var(--teal-dark); }
+.section-block.repro h4::before { background: var(--teal); }
+.section-block.final { background: var(--surface2); }
+.section-block.final h4 { color: var(--text-muted); }
+.section-block.final h4::before { background: var(--text-hint); }
+
+.download-row { display: flex; gap: 8px; margin-top: 16px; }
+.download-row .btn { flex: 1; text-align: center; }
+.restart-row { text-align: center; margin-top: 10px; }
+
+.spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(180,83,9,0.3); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.65s linear infinite; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-box { background: var(--red-light); border: 0.5px solid rgba(185,28,28,0.25); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; color: var(--red-dark); margin-top: 12px; line-height: 1.5; }
+
+.tags-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.divider { height: 0.5px; background: var(--border-strong); margin: 14px 0; }
+.footer-note { text-align: center; font-size: 12px; color: var(--text-hint); margin-top: 2rem; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo-chip"><span class="logo-dot"></span>AI · Multi-Agent · Deep Learning</div>
+    <h1>Academic Paper <span>Intelligence</span></h1>
+    <p>Upload any research PDF and receive a structured peer review — powered by a custom-trained TextCNN and 4 specialized AI agents.</p>
+  </div>
+
+  <div id="upload-section">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📄</div>
+        <span class="card-title">Paper upload</span>
+        <span class="card-subtitle">Max 50MB · PDF only</span>
+      </div>
+      <div class="upload-zone" id="drop-zone">
+        <span class="upload-emoji">🔬</span>
+        <h3>Drop your research PDF here</h3>
+        <p>Supports arXiv papers, journal articles, conference papers,<br>student reports, and any academic document</p>
+        <label for="pdf-input" class="btn btn-primary">Choose PDF to analyze</label>
+        <input type="file" id="pdf-input" accept=".pdf">
+      </div>
+    </div>
+  </div>
+
+  <div id="pipeline-section">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">⚙️</div>
+        <span class="card-title">Pipeline</span>
+        <span class="card-subtitle" id="pipeline-status-label">Running...</span>
+      </div>
+      <div id="paper-meta-container"></div>
+      <div class="step-list" id="step-list"></div>
+      <div id="error-container"></div>
+    </div>
+  </div>
+
+  <div id="result-section">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">✅</div>
+        <span class="card-title">Peer review</span>
+        <span class="card-subtitle" id="result-timestamp"></span>
+      </div>
+      <div id="result-content"></div>
+    </div>
+  </div>
+
+  <div class="footer-note">Academic Paper Intelligence · UIR AI & Big Data S8 · 2025–2026</div>
+</div>
+
+<script>
+  let currentJobId = null;
+  let pollInterval = null;
+  let classificationRendered = false;
+
+  const uploadSec   = document.getElementById('upload-section');
+  const pipelineSec = document.getElementById('pipeline-section');
+  const resultSec   = document.getElementById('result-section');
+  const stepList    = document.getElementById('step-list');
+  const metaCont    = document.getElementById('paper-meta-container');
+  const errorCont   = document.getElementById('error-container');
+  const resultCont  = document.getElementById('result-content');
+  const statusLabel = document.getElementById('pipeline-status-label');
+  const dropZone    = document.getElementById('drop-zone');
+  const pdfInput    = document.getElementById('pdf-input');
+
+  function show(el) { el.style.display = 'block'; }
+  function hide(el) { el.style.display = 'none'; }
+
+  pdfInput.addEventListener('change', e => {
+    if (e.target.files[0]) uploadFile(e.target.files[0]);
+  });
+
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f && f.name.toLowerCase().endsWith('.pdf')) uploadFile(f);
+    else showError('Please upload a PDF file.');
+  });
+
+  function uploadFile(file) {
+    const form = new FormData();
+    form.append('pdf', file);
+
+    hide(uploadSec);
+    show(pipelineSec);
+    classificationRendered = false;
+
+    fetch('/upload', { method: 'POST', body: form })
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) { showError(data.error); return; }
+        currentJobId = data.job_id;
+        pollInterval = setInterval(pollStatus, 1500);
+      })
+      .catch(e => showError('Upload failed: ' + e.message));
+  }
+
+  function pollStatus() {
+    if (!currentJobId) return;
+    fetch('/status/' + currentJobId)
+      .then(r => r.json())
+      .then(data => {
+        if (data.paper) renderPaperMeta(data.paper, data.classification);
+        if (data.steps) renderSteps(data.steps);
+
+        if (data.status === 'awaiting_approval') statusLabel.textContent = 'Awaiting your approval';
+        else if (data.status === 'done') statusLabel.textContent = 'Complete ✓';
+        else statusLabel.textContent = 'Running...';
+
+        if (data.error) { showError(data.error); clearInterval(pollInterval); return; }
+        if (data.status === 'done') { clearInterval(pollInterval); renderResult(data.result); }
+        if (data.status === 'rejected') { clearInterval(pollInterval); showError('Pipeline stopped by reviewer.'); }
+      })
+      .catch(e => console.error('Poll error:', e));
+  }
+
+  function renderPaperMeta(paper, classification) {
+    if (document.getElementById('paper-meta')) {
+      // Update classification box if not yet rendered
+      if (classification && !classificationRendered) {
+        classificationRendered = true;
+        const box = document.getElementById('classification-box');
+        if (!box) {
+          const meta = document.getElementById('paper-meta');
+          const clDiv = document.createElement('div');
+          clDiv.id = 'classification-box';
+          clDiv.className = 'classification-box';
+          clDiv.innerHTML = `
+            <div class="cl-row"><span class="cl-label">TextCNN field (preliminary)</span><span class="cl-value">${classification.field}</span></div>
+            <div class="cl-row"><span class="cl-label">Novelty</span><span class="cl-value">${classification.novelty} · ${(classification.novelty_confidence*100).toFixed(1)}% confidence</span></div>
+            <div class="cl-note">Classifier Agent will verify and correct the field label</div>`;
+          meta.appendChild(clDiv);
+        }
+      }
+      return;
+    }
+    metaCont.innerHTML = `
+      <div class="paper-meta" id="paper-meta">
+        <h3>${paper.title}</h3>
+        <div class="paper-stats">
+          <span>${paper.pages} pages</span>
+          <span style="margin-left:8px;">· ${paper.refs} references found</span>
+        </div>
+      </div>`;
+  }
+
+  function renderSteps(steps) {
+    stepList.innerHTML = '';
+    steps.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'step ' + s.status;
+
+      let numContent = s.id;
+      if (s.status === 'done')     numContent = '✓';
+      if (s.status === 'running')  numContent = '<span class="spinner"></span>';
+      if (s.status === 'rejected') numContent = '✕';
+      if (s.status === 'waiting')  numContent = '⏸';
+
+      let actions = '';
+      if (s.status === 'waiting') {
+        actions = `<div class="step-actions">
+          <button class="btn btn-success" onclick="approve()">Approve ✓</button>
+          <button class="btn btn-danger" onclick="reject()">Reject</button>
+        </div>`;
+      }
+
+      div.innerHTML = `<div class="step-num">${numContent}</div><span class="step-label">${s.label}</span>${actions}`;
+      stepList.appendChild(div);
+    });
+  }
+
+  function approve() {
+    fetch('/approve/' + currentJobId, { method: 'POST' })
+      .then(() => {
+        const box = document.getElementById('classification-box');
+        if (box) box.remove();
+        statusLabel.textContent = 'Running...';
+      });
+  }
+
+  function reject() {
+    fetch('/reject/' + currentJobId, { method: 'POST' });
+  }
+
+  function renderResult(r) {
+    hide(pipelineSec);
+    show(resultSec);
+    document.getElementById('result-timestamp').textContent = new Date().toLocaleTimeString();
+
+    const vl = r.verdict.toLowerCase();
+    const verdictClass = (vl.includes('accept') && !vl.includes('major')) ? 'accept'
+                       : vl.includes('reject') ? 'reject' : 'revision';
+    const verdictIcon  = verdictClass === 'accept' ? '✓' : verdictClass === 'reject' ? '✕' : '~';
+
+    resultCont.innerHTML = `
+      <div class="tags-row">
+        <span class="badge badge-purple">${r.field}</span>
+        <span class="badge badge-teal">Novelty: ${r.novelty} · ${r.novelty_confidence}%</span>
+      </div>
+      <div class="verdict-banner verdict-${verdictClass}">
+        <div class="verdict-icon">${verdictIcon}</div>
+        <div class="verdict-text">
+          <div class="vt-label">Final verdict</div>
+          <div class="vt-value">${r.verdict}</div>
+        </div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric"><div class="metric-label">Citation score</div><div class="metric-value">${r.citation_score}</div></div>
+        <div class="metric"><div class="metric-label">Reproducibility</div><div class="metric-value">${r.repro_score}</div></div>
+        <div class="metric"><div class="metric-label">Novelty level</div><div class="metric-value sm">${r.novelty}</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="section-block summary"><h4>Summary</h4><p>${r.summary}</p></div>
+      <div class="section-block strengths"><h4>Strengths</h4><p>${r.strengths}</p></div>
+      <div class="section-block weaknesses"><h4>Weaknesses</h4><p>${r.weaknesses}</p></div>
+      <div class="section-block citations"><h4>Citation assessment</h4><p>${r.citations}</p></div>
+      <div class="section-block repro"><h4>Reproducibility</h4><p>${r.repro}</p></div>
+      <div class="section-block final"><h4>Verdict justification</h4><p>${r.verdict_section}</p></div>
+      <div class="download-row">
+        <a class="btn" href="/download/${currentJobId}/json" download>Download JSON</a>
+        <a class="btn btn-primary" href="/download/${currentJobId}/md" download>Download report</a>
+      </div>
+      <div class="restart-row">
+        <button class="btn" onclick="location.reload()" style="margin-top:8px;font-size:12px;color:var(--text-muted);">Analyze another paper</button>
+      </div>`;
+  }
+
+  function showError(msg) {
+    errorCont.innerHTML = `<div class="error-box">⚠️ ${msg}</div>`;
+  }
+</script>
+</body>
+</html>
